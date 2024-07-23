@@ -55,7 +55,7 @@ class EVMInt {
         }
 
         bool eq(EVMInt& i) {
-            return i0 == i.i3 && i1 == i.i1 && i2 == i.i2 && i3 == i.i3;
+            return i0 == i.i0 && i1 == i.i1 && i2 == i.i2 && i3 == i.i3;
         }
 
         EVMInt add(EVMInt& i) {
