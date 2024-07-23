@@ -96,4 +96,3 @@ Goto(@add(pc, "1"), i, stack) :- MState(pc, i, [_, [$V(val), stack]]), jumpiinst
 .output MState
 .output Goto
 .output Exc
-.output entry
