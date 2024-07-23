@@ -1,0 +1,99 @@
+.type EVMInt = symbol
+.type AbsDom = T {} | V {x: EVMInt}
+.type Stack = [top : AbsDom, tail : Stack]
+
+.decl MState(pc : EVMInt, iteration : number, stack : Stack) 
+.decl Exc(pc : EVMInt, iteration : number)
+.decl Goto(pc : EVMInt, iteration : number, stack : Stack)
+
+
+.functor eq(x : EVMInt, y : EVMInt) : number
+.functor add(x : EVMInt, y : EVMInt) : EVMInt stateful
+
+.decl absadd(x : AbsDom, y : AbsDom)
+.decl absadd_res(x : AbsDom, y : AbsDom, r : AbsDom)  
+
+absadd_res($T(),$T(),$T()). 
+absadd_res($T(),$V(x),$T()) :- absadd($T(),$V(x)). 
+absadd_res($V(x),$T(),$T()) :- absadd($V(x),$T()). 
+absadd_res($V(x), $V(y), $V(@add(x,y))) :- absadd($V(x), $V(y)).
+
+
+/*********************************************************************
+* EVERY INSTRUCTION CAN THROW AN EXCEPTION
+*********************************************************************/
+
+Exc(pc, i) :- MState(pc, i, _).
+
+/*********************************************************************
+* SEMANTICS FOR ADD
+*********************************************************************/
+
+.decl addinstr(pc : EVMInt) 
+
+absadd(x,y) :- MState(pc, _, [x, [y, _]]), addinstr(pc).
+MState(@add(pc,"1"), i, [r, tail]) :- MState(pc, i, [x, [y, tail]]), addinstr(pc), absadd_res(x,y,r).
+
+/*********************************************************************
+* SEMANTICS FOR PUSH
+*********************************************************************/
+.decl pushinstr(pc : EVMInt, val : EVMInt, os : EVMInt) 
+
+MState(@add(pc,@add(os,"1")), i, [$V(val), stack]) :- MState(pc, i, stack), pushinstr(pc, val, os).
+
+/*********************************************************************
+* SEMANTICS FOR POP
+*********************************************************************/
+.decl popinstr(pc : EVMInt) 
+
+MState(@add(pc,"1"), i, tail) :- MState(pc, i, [_, tail]), popinstr(pc).
+
+/*********************************************************************
+* SEMANTICS FOR JUMPDEST
+*********************************************************************/
+.decl jumpdestinstr(pc : EVMInt)
+.decl entry(pc : EVMInt, iteration : number)
+
+MState(@add(pc,"1"), i, stack) :- MState(pc, i, stack), jumpdestinstr(pc), entry(pc, i).
+Goto(@add(pc,"1"), i, stack) :- MState(pc, i, stack), jumpdestinstr(pc), !entry(pc, i).
+
+/*********************************************************************
+* SEMANTICS FOR JUMP
+*********************************************************************/
+.decl jumpinstr(pc : EVMInt)
+
+Goto(v, i, stack) :- MState(pc, i, [$T(), stack]), jumpinstr(pc), jumpdestinstr(v). //dest is T -> Go to all jumpdests
+Goto(v, i, stack) :- MState(pc, i, [$V(v), stack]), jumpinstr(pc), jumpdestinstr(v).
+
+/*********************************************************************
+* SEMANTICS FOR JUMPI
+*********************************************************************/
+.decl jumpiinstr(pc : EVMInt)
+
+// val is top, execute both branches
+Goto(v, i, stack) :- MState(pc, i, [$T(), [$T(), stack]]), jumpiinstr(pc), jumpdestinstr(v). //dest is T -> Go to all jumpdests
+Goto(v, i, stack) :- MState(pc, i, [$V(v), [$T(), stack]]), jumpiinstr(pc), jumpdestinstr(v).
+Goto(@add(pc, "1"), i, stack) :- MState(pc, i, [_, [$T(), stack]]), jumpiinstr(pc).
+
+// val is not top
+Goto(v, i, stack) :- MState(pc, i, [$T(), [$V(val), stack]]), jumpiinstr(pc), @eq(val, "0") = 0, jumpdestinstr(v). //dest is T -> Go to all jumpdests
+Goto(v, i, stack) :- MState(pc, i, [$V(v), [$V(val), stack]]), jumpiinstr(pc), @eq(val, "0") = 0, jumpdestinstr(v).
+Goto(@add(pc, "1"), i, stack) :- MState(pc, i, [_, [$V(val), stack]]), jumpiinstr(pc), @eq(val, "0") = 1.
+
+
+/*********************************************************************
+* I/O
+*********************************************************************/
+.input MState
+.input addinstr
+.input pushinstr
+.input popinstr
+.input jumpdestinstr
+.input jumpinstr
+.input jumpiinstr
+.input entry
+
+.output MState
+.output Goto
+.output Exc
+.output entry

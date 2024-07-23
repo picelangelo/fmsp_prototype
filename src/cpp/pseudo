@@ -1,0 +1,13 @@
+analyze_block(0, {}) //start with empty stack at first block
+
+analyze_block(pc, stack):
+    bbstack <- stack[0..n] // n is the number of stack arguments needed for the basic block
+    if (pc, bbstack) in hashmap:
+        //the block has already been called with this stack
+        return
+    add (pc, bbstack) to hashmap
+    run souffle starting with mstate(pc,bbstack), jumps do not generate new mstates but "goto" relations
+    for each "goto(j, topstack)" in output of souffle
+        fullstack <- (stack - bbstack + topstack)
+        analyze_block(j, fullstack)
+
